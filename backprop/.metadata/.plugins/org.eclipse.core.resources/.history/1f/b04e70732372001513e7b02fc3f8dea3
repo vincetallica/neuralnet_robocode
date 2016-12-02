@@ -1,0 +1,19 @@
+import java.io.File;
+
+/* This interface is common to both the Neural Net and LUT interfaces.
+ The idea is that you should be able to easily switch the LUT
+ for the Neural Net since the interfaces are identical. */
+
+public interface CommonInterface {
+
+	/*
+	 * 	X the input vector. An array of doubles.
+	 * The value return by LUT OR NN for this input fector
+	 * */
+	public double outputFor(double [] X);
+	
+	public double train(double[] X, double argValue);
+	
+	
+	
+}

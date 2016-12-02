@@ -1,0 +1,23 @@
+package XOR_BP;
+import java.*;
+import java.util.Random;
+import NeuralNet.*;
+
+public class XOR_BP
+{
+	static NeuralNetInterface nn_if = new NeuralNet();
+
+    private static void algorithm()
+    {
+    	
+    }
+
+    @SuppressWarnings("static-access")
+	public static void main(String[] args)
+    {
+    	nn_if.NUM_OUTPUTS = 1;
+        algorithm();
+        return;
+    }
+
+}

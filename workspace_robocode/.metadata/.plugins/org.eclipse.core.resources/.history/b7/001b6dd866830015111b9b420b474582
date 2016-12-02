@@ -1,0 +1,76 @@
+
+import robocode.AdvancedRobot;
+import robocode.BulletHitEvent;
+import robocode.BulletMissedEvent;
+import robocode.ScannedRobotEvent;
+
+
+public interface LUTInterface extends CommonInterface {
+11
+12 /**
+13 * Constructor. (You will need to define one in your implementation)
+14 * @param argNumInputs The number of inputs in your input vector
+15 * @param argVariableFloor An array specifying the lowest value of each variable in the input vector.
+16 * @param argVariableCeiling An array specifying the highest value of each of the variables in the input vector.
+17 * The order must match the order as referred to in argVariableFloor.
+18 *
+19 public LUT (
+20 int argNumInputs,
+21 int [] argVariableFloor,
+22 int [] argVariableCeiling );
+23 */
+24
+25 /**
+26 * Initialise the look up table to all zeros.
+27 */
+28 public void initialiseLUT();
+29
+30 /**
+31 * A helper method that translates a vector being used to index the look up table
+32 * into an ordinal that can then be used to access the associated look up table element.
+33 * @param X The state action vector used to index the LUT
+34 * @return The index where this vector maps to
+35 */
+36 public int indexFor(double [] X);
+37
+38
+39 } // End of public interface LUT
+
+
+public class MyFirstRobot extends AdvancedRobot {
+	//Enemy keeps track of absolute enemy direction
+	double enemy = 0;
+	boolean lock=false;
+	long lastlock=0;
+	double distance=0;
+	double confidence = 1.0;
+
+	public void run() {
+		while(true) {
+			if(lock) {
+				setAhead(distance-100);
+				setTurnRight(enemy-getHeading());
+				setTurnRadarRight(getHeading()-getRadarHeading());
+				setFire(distance*confidence/30);
+				execute();
+				if(getTime()-lastlock > 10) lock=false;
+			} else {
+				setTurnRadarRight(enemy-getHeading()>0?360:-360);
+				execute();
+			}
+		}
+	}
+	public void onScannedRobot(ScannedRobotEvent e) {
+		enemy = getHeading()+e.getBearing();
+		distance = e.getDistance();
+		lock = true;
+		lastlock = getTime();
+		
+	}
+	public void onBulletHit(BulletHitEvent e) {
+		confidence=1.0;
+	}
+	public void onBulletMissed(BulletMissedEvent e) {
+		confidence*=0.9;
+	}
+}

@@ -1,0 +1,238 @@
+package NeuralNet;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	public int NUM_OUTPUTS, NUM_HIDDEN;
+	public static int NUM_INPUTS, NUM_PATTERNS, NUM_EPOCH;
+	public double errThisPat, LR, MT, LB, UB;
+	public double errSig, weightChange = 0.0;
+
+	// Outputs
+	public double outputNeuron[] = new double[NUM_OUTPUTS];
+	public double hiddenNeuron[] = new double[NUM_HIDDEN]; // u = Hidden node
+															// outputs.
+	public double ba_hiddenNeuron[] = new double[NUM_HIDDEN];
+	public double weightsIH[][] = new double[NUM_INPUTS][NUM_HIDDEN]; // Input
+																		// to
+																		// Hidden
+																		// weights.
+	public double weightsHO[] = new double[NUM_HIDDEN]; // Hidden to Output
+														// weights.
+	public double prev_weightsIH[][] = new double[NUM_INPUTS][NUM_HIDDEN]; // Input
+																			// to
+																			// Hidden
+																			// weights.
+	public double prev_weightsHO[] = new double[NUM_HIDDEN]; // Hidden to Output
+																// weights.
+	public double weightsBO[] = new double[NUM_OUTPUTS];
+	public double prev_deltaWIH[][] = new double[NUM_INPUTS][NUM_HIDDEN];
+	public double prev_deltaWHO[] = new double[NUM_HIDDEN];
+	public double prev_deltaBO[] = new double[NUM_OUTPUTS];
+	public double outPred = 0.0;
+	public boolean NW_flag;
+
+	// Inputs
+	public static double beta = 1.0;
+	public boolean BF;
+
+	public NeuralNet(final int argNumInputs, 
+			final int argNumHidden, 
+			final double argLearningRate,
+			final double argMomentumTerm, 
+			final double argA, 
+			final double argB, 
+			final boolean bipolar_flag,
+			final boolean NW) {
+		NUM_OUTPUTS = 1;
+		NUM_INPUTS = argNumInputs + 1; // argNumInputs [3 inputs in input vector
+										// X]
+		NUM_HIDDEN = argNumHidden; // argNumHidden [4 hidden neurons in layer,
+									// only 1 layer]
+		NUM_PATTERNS = 4;
+
+		BF = bipolar_flag;
+		LR = argLearningRate; // argLearningRate, Learning rate, input to hidden
+								// weights
+		MT = argMomentumTerm; // argMomentumTerm
+		LB = argA; // argA,lowerbound of sigmoid by output neuron only
+		UB = argB; // argB,upperbound of custom sigmoid by output neuron only
+		hiddenNeuron = new double[NUM_HIDDEN]; // u = Hidden node outputs.
+		ba_hiddenNeuron = new double[NUM_HIDDEN];
+		outputNeuron = new double[NUM_OUTPUTS];
+		weightsIH = new double[NUM_INPUTS][NUM_HIDDEN]; // Input to Hidden
+														// weights.
+		weightsHO = new double[NUM_HIDDEN]; // Hidden to Output weights.
+		prev_weightsIH = new double[NUM_INPUTS][NUM_HIDDEN]; // Input to Hidden
+																// weights.
+		prev_weightsHO = new double[NUM_HIDDEN]; // Hidden to Output weights.
+		weightsBO = new double[NUM_OUTPUTS];
+		prev_deltaWIH = new double[NUM_INPUTS][NUM_HIDDEN];
+		prev_deltaWHO = new double[NUM_HIDDEN];
+		prev_deltaBO = new double[NUM_OUTPUTS];
+		NW_flag = NW;
+		if (NW == true) {
+			beta = (0.7 * Math.pow(NUM_HIDDEN, (1.0 / NUM_INPUTS)));
+		}
+	}
+
+	// Internal functions
+	public double tanh(final double x) {
+		return Math.tanh(x); // [-1, 1]
+	}
+
+	public double d_tanh(final double x) {
+		return (1 - Math.pow(x, 2)); //where x=tanh(x)
+	}
+
+	public double bipolar_sig(final double x) {
+		return ((2.0 / (1 + Math.pow(Math.E, (-1) * x))) - 1); // [-1, 1]
+	}
+
+	public double d_bipolar_sig(final double x) {
+		return ((1 - Math.pow(x, 2)) / 2);//where x=bipolar_sig(x)
+	}
+
+	public double sigmoid(final double x) {
+		return (1.0 / (1 + Math.pow(Math.E, (-1) * x))); // [0, 1]
+	}
+
+	public double d_sig(final double x) {
+		return x * (1 - x); //where x=sigmoid(x)
+	}
+
+	public double customSigmoid(final double x) {
+		return ((UB - LB) / (1 + Math.pow(Math.E, (-1) * x)) - LB);
+	}
+
+	public double squash(double x) {
+		if (!BF) {
+			if (x >= 0.8) {
+				x = 1.0;
+			} else if (x <= 0.2) {
+				x = 0.0;
+			}
+		} else {
+			if (x >= 0.5) {
+				x = 1.0;
+			} else if (x <= -0.5) {
+				x = -1.0;
+			}
+		}
+		return x;
+	}
+
+	public void initializeWeights() {
+		// input vector X [0]=-1/1, [1]=1/-1, [2]=1
+		double InputsNorm = 0.0;
+		for (int j = 0; j < NUM_HIDDEN; j++) {
+			weightsHO[j] = (new Random().nextDouble() - 0.5); // [-0.5, 0.5]
+			InputsNorm += Math.pow(weightsHO[j], 2);
+			System.out.println("HO Weight = " + weightsHO[j]);
+			for (int i = 0; i < NUM_INPUTS; i++) {
+				weightsIH[i][j] = (new Random().nextDouble() - 0.5); // [-0.5,
+																		// 0.5]
+				System.out.println("IH Weight = " + weightsIH[i][j]);
+				InputsNorm += Math.pow(weightsIH[i][j], 2);
+			}
+		}
+		weightsBO[0] = (new Random().nextDouble() - 0.5);
+		// Nguyen Widrow Adjustment
+		InputsNorm = Math.sqrt(InputsNorm);
+		if (NW_flag == true) {
+			for (int j = 0; j < NUM_HIDDEN; j++) {
+				weightsHO[j] = (beta * weightsHO[j]) / InputsNorm;
+				for (int i = 0; i < NUM_INPUTS; i++) {
+					weightsIH[i][j] = (beta * weightsIH[i][j]) / InputsNorm;
+				}
+			}
+		}
+		return;
+	}
+
+	public void zeroWeights() {
+		return;
+	}
+
+	public double outputFor(final double[] X) {
+		outPred = 0.0;
+		// Calculate hidden nerons' activations (Forward propagation)
+		for (int i = 0; i < NUM_HIDDEN; i++) {
+			hiddenNeuron[i] = 0.0;
+			for (int j = 0; j < NUM_INPUTS; j++) {// size of input
+													// vector(including bias)
+				hiddenNeuron[i] += (X[j] * weightsIH[j][i]);
+			}
+			ba_hiddenNeuron[i] = hiddenNeuron[i];
+			hiddenNeuron[i] = BF ? bipolar_sig(hiddenNeuron[i]) : sigmoid(hiddenNeuron[i]);
+		}
+		// Calculate output neuron value (Forward propagation)
+		for (int i = 0; i < NUM_HIDDEN; i++) {
+			outPred += (hiddenNeuron[i] * weightsHO[i]);
+		}
+		// Calculate bias term from input to outputneuron
+		for (int i = 0; i < NUM_OUTPUTS; i++) {
+			outPred += 1.0 * weightsBO[i];
+		}
+		outputNeuron[0] = (BF ? bipolar_sig(outPred) : sigmoid(outPred));
+		return outputNeuron[0]; // if outputFor() will be iterated across # of
+								// neurons
+	}
+
+	public double train(final double[] X, final double argValue) {
+		outputNeuron[0] = outputFor(X);
+		errThisPat = (argValue - outputNeuron[0]);
+		errSig = BF ? d_bipolar_sig(outputNeuron[0]) : d_sig(outputNeuron[0]);
+		errSig = errThisPat * errSig;
+		// Calculate weightHO changes based on errOutput/fprime_err
+		for (int k = 0; k < NUM_HIDDEN; k++) {
+			final double deltaweight = LR * errSig;
+			final double x = deltaweight * hiddenNeuron[k];
+			weightChange = x + (MT * (prev_deltaWHO[k]));
+			prev_weightsHO[k] = weightsHO[k]; // store t-1 weights
+			weightsHO[k] += weightChange; // update t weight
+			prev_deltaWHO[k] = weightChange;// store t weight
+
+		}
+		for (int i = 0; i < NUM_OUTPUTS; i++) { // update output to bias weight
+			final double deltaweight = LR * errSig;
+			final double x = deltaweight * 1.0;
+			weightChange = x + (MT * (prev_deltaBO[i]));
+			weightsBO[i] += weightChange;
+			prev_deltaBO[i] = weightChange;// store previous bias weight change
+		}
+		// Calculate weightIH changes based on weightsHO
+		for (int i = 0; i < NUM_HIDDEN; i++) {
+			for (int j = 0; j < NUM_INPUTS; j++) {
+				final double x = BF ? d_bipolar_sig(hiddenNeuron[i]) : d_sig(hiddenNeuron[i]);
+				final double deltaweight = LR * errSig * x * (weightsHO[i]);
+				weightChange = deltaweight * X[j];
+				weightChange = weightChange + (MT * (prev_deltaWIH[j][i]));
+				prev_weightsIH[j][i] = weightsIH[j][i]; // t current set of
+														// weigths
+				weightsIH[j][i] += weightChange; // t+1
+				prev_deltaWIH[j][i] = weightChange; // t-1 store prev weight
+			}
+
+		}
+		outputNeuron[0] = outputFor(X); // recalculate u0
+		outputNeuron[0] = squash(outputNeuron[0]);
+		errThisPat = argValue - outputNeuron[0];
+		return (errThisPat); // return error for training pattern
+	}
+
+	@Override
+	public void save(final File argFile) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void load(final String argFileName) throws IOException {
+		// TODO Auto-generated method stub
+
+	}
+}

@@ -1,0 +1,16 @@
+import java.*;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	public double sigmoid (double x) {
+		
+	}
+	public double customSigmoid(double x) {
+		
+	}
+	public void initializeWeights() {
+		
+	}
+	public void zeroWeights()
+}

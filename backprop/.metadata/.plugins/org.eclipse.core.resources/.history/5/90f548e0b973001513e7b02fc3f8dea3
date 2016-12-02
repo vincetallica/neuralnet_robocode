@@ -1,0 +1,34 @@
+import java.*;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	private static final int NUM_INPUTS = 3;
+	private static final int NUM_PATTERNS = 4;
+	private static final int NUM_HIDDEN = 4;
+	private static final int NUM_EPOCH = 200;
+
+    private static double hiddenVal[] = new double[NUM_HIDDEN];    // Hidden node outputs.
+
+    private static double weightsIH[][] =  new double[NUM_INPUTS][NUM_HIDDEN]; // Input to Hidden weights.
+    private static double weightsHO[] = new double[NUM_HIDDEN];    // Hidden to Output weights.
+
+    private static int trainInputs[][] = new int[NUM_PATTERNS][NUM_INPUTS];
+    private static int trainOutput[] = new int[NUM_PATTERNS];      // "Actual" output values.
+
+	public double sigmoid (double x) {
+		return (2.0/(1 + Math.pow(Math.E, (-1) * x))); 
+	}
+	public double customSigmoid (double x) {
+		return (1.0/(1 + Math.pow(Math.E, (-1) * x)));
+	}
+	public void initializeWeights() {
+		for(int j=0; j < NUM_HIDDEN; j++ )
+		{
+			weightsHO[j] = (new Random().)
+		}
+	}
+	public void zeroWeights() {
+		
+	}
+}

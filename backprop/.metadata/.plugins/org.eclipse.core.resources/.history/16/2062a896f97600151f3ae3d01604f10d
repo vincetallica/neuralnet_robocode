@@ -1,0 +1,102 @@
+package NeuralNet;
+
+import java.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+	public NeuralNet() { //Constructor
+	
+	}
+	public double sigmoid (double x) {
+		return (2.0/(1 + Math.pow(Math.E, (-1) * x) - 1)); //[-1, 1]
+	}
+
+	public double customSigmoid (double x) {
+		return ((argUpperB-argLowerB)/(1 + Math.pow(Math.E, (-1) * x)) - argLowerB);
+	}
+
+	public void initializeWeights() {
+		// input vector X [0]=-1/1, [1]=1/-1, [2]=1 
+		for(int j=0; j < NUM_HIDDEN; j++ )
+		{
+			for (int k=0; k < NUM_OUTPUTS; k++) {
+				weightsHO[k][j] = (new Random().nextDouble() - 0.5); // [-0.5, 0.5]
+				System.out.println("Weight = " + weightsHO[k][j]);
+			}
+			for (int i = 0; i < NUM_INPUTS; i++) {
+				weightsIH[i][j] = (new Random().nextDouble() - 0.5); // [-.5, .5]
+				System.out.println("IH Weight = " + weightsIH[i][j]);
+			}
+		}
+	}
+	public void zeroWeights() {
+		for(int j=0; j < NUM_HIDDEN; j++ )
+		{
+			hiddenVal [j] = 0;
+		}
+        trainInputs[0][0] = 1;
+        trainInputs[0][1] = -1;
+        trainInputs[0][2] = 1;    // Bias
+        trainOutput[0] = 1;
+
+        trainInputs[1][0] = -1;
+        trainInputs[1][1] = 1;
+        trainInputs[1][2] = 1;    // Bias
+        trainOutput[1] = 1;
+
+        trainInputs[2][0] = 1;
+        trainInputs[2][1] = 1;
+        trainInputs[2][2] = 1;    // Bias
+        trainOutput[2] = -1;
+
+        trainInputs[3][0] = -1;
+        trainInputs[3][1] = -1;
+        trainInputs[3][2] = 1;    // Bias
+        trainOutput[3] = -1;
+	}
+	
+	@Override
+	public double[] outputFor(double[] X) {
+		// TODO Auto-generated method stub
+		// Compute weighted sum Si, and ui activations for all cells
+		double weightedSum = 0;
+		for (int i = 0; i< NUM_HIDDEN; i++) {
+			weightedSum = 0.0;
+			for (int j = 0; j<X.length; j++) {//size of input vector
+				weightedSum += (X[j]*weightsIH[j][i]);
+			}
+			hiddenVal[i] = sigmoid(weightedSum);
+		}
+		return hiddenVal; //if outputFor() will be iterated across # of neurons
+		//we will still need # of neurons/hiddenlayer
+	}
+	@Override
+	public double[] train(double[] X, double argValue) {
+		// beginning with outputs, eval error, prop downwards
+		double errOutput[] = new double[NUM_OUTPUTS];//initialized 0 by default
+		double err;
+		for (int i=0;i<NUM_HIDDEN; i++)
+		{
+			for (int j = 0; j<NUM_OUTPUTS; j++) {
+				errOutput[j] += hiddenVal[i] * weightsHO[j][i];
+			}
+		}
+		for (int j = 0; j<NUM_OUTPUTS; j++) {
+			err = errOutput - argValue;
+		}
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	@Override
+	public void save(File argFile) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void load(String argFileName) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+}

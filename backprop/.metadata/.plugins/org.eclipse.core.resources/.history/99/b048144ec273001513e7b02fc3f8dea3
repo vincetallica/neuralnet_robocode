@@ -1,0 +1,15 @@
+import java.*;
+import java.util.Random;
+
+public class Common implements CommonInterface {
+
+	public double outputFor(double [] X) {
+		
+	}
+	public double train (double[] X, double argValue) {
+		
+	}
+	public void save (File argFile) {
+		
+	}
+}

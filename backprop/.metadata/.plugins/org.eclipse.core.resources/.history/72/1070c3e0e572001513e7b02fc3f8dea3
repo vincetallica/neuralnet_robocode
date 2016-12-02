@@ -1,0 +1,7 @@
+
+public class NeuralNet implements NeuralNetInterface {
+
+	public double sigmoid (double x) {
+		
+	}
+}

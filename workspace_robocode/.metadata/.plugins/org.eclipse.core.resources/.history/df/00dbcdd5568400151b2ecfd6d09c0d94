@@ -1,0 +1,539 @@
+package LearningRobot;
+
+import NeuralNet.*;
+import robocode.*;
+import robocode.util.Utils;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Random;
+
+import LearningRobot.LookupTable;
+
+public class LearningRobot extends AdvancedRobot {
+
+	private static LookupTable lut;
+	private static ArrayList<Double> score;
+	private final int stateVariables = 7;
+	/**
+	 * Energy - Quantized to 0-2, low, medium, high
+	 */
+	public double energy;
+
+	/**
+	 * Position x - quantized to 0 - 8
+	 */
+	public double x;
+
+	/**
+	 * Position x - quantized to 0 - 6
+	 */
+	public double y;
+
+	/**
+	 * Gun Heat, Quantized to 0-2, low, medium, high can only fire when 0
+	 */
+	public double gunHeat;
+
+	/**
+	 * Velocity - 0 - 8 pixels / second, not sure it's especially useful as it
+	 * seems to clamp at 1
+	 */
+	public double velocity;
+
+	/**
+	 * Heading - in degrees, quantized in 10 degree increments
+	 */
+	public double heading;
+
+	/**
+	 * gun heading- in degrees, quantized from in 10 degree increments
+	 */
+	public double gunHeading;
+
+	/**
+	 * radar heading- in degrees, quantized from in 10 degree increments
+	 * <p/>
+	 * IGNORED
+	 */
+	public double radarHeading;
+
+	// enemy state variables
+
+	/**
+	 * Enemy Bearing - in degrees, quanitized in 10 deg increments
+	 * <p/>
+	 * (sort of think this might make more sense as facing me or not facing me)
+	 */
+	public double enemyBearing;
+
+	/**
+	 * Enemy Distance - quantized to near, medium, far
+	 */
+	public double enemyDistance;
+
+	/**
+	 * Enemy Energy - quantized to 0 - 2, high medium low
+	 */
+	public double enemyEnergy;
+
+	/**
+	 * Enemy Velocity - 0 - 8 pixels per second (ignoring)
+	 */
+	private double enemyVelocity;
+
+	private double lastReward;
+	private double[] lastStateAction;
+	private final double epsilon = 0.8; // exploration rate
+	private final double gamma = 0.9; // discount rate
+	private final double alpha = 0.1; // learning rate
+	public boolean trackedEnemy;
+	public boolean waitForBullet;
+
+	private static PrintStream fileOut=null;
+	public enum Action {
+		SHOOT_AT_ENEMY, EXPLORE_RIGHT, EXPLORE_LEFT, EXPLORE_FORWARD, EXPLORE_BACKWARD;
+
+		public void performAction(final LearningRobot robot) {
+			switch (this) {
+			case EXPLORE_LEFT:
+				robot.turnLeft(45);
+				break;
+			case EXPLORE_RIGHT:
+				robot.turnRight(45);
+				break;
+			case EXPLORE_FORWARD:
+				robot.ahead(100);
+				break;
+			case EXPLORE_BACKWARD:
+				robot.back(100);
+				break;
+			// Shoot at the enemy based on the most recent position current
+			case SHOOT_AT_ENEMY:
+				final double enemy = robot.heading - robot.gunHeading
+						+ robot.enemyBearing;
+				final double absEnemy = Math.abs(enemy); //magnitude of angle
+
+				if (enemy > 0) {
+					robot.turnGunRight(absEnemy);
+				} else {
+					// make sure it's not actually zero
+					if (enemy + 360 > 0) {
+						robot.turnGunLeft(absEnemy);
+					}
+				}
+
+				if (robot.getGunHeat() != 0)
+					return;
+
+				// fire adjusted for distance
+				robot.fire(Math.min(400 / robot.enemyDistance, 3));
+
+				robot.waitForBullet = true;
+
+				break;
+
+			}
+
+		}
+	}
+
+	public LearningRobot() {
+		super();
+
+		// FLOOR
+		final int[] floor = { 0, 0, 0, 0, 0, 0, 0, 0};
+
+		final int[] ceil = { 2, 8, 6, 1, 6, 6, 2, Action.values().length + 1 };
+
+		if (lut == null) {
+			lut = new LookupTable(this.stateVariables + 1, floor, ceil);
+
+			/*try {
+			 lut.load("log.txt");
+			 } catch (IOException e) {
+			e.printStackTrace();
+			}*/
+		}
+
+	}
+
+	private void executePolicy() {
+		final double[][] sas = this.generateStateActionPairs();
+		final double[] greedy = maxQOf(sas);
+
+		// exploration
+		final Action a;
+		if (new Random().nextDouble() < epsilon) {
+			final double[] sa = sas[new Random().nextInt(sas.length)];
+			lastStateAction = sa;
+
+			performAction(sa);
+		}
+
+		// greedy
+		else {
+			performAction(greedy);
+			lastStateAction = greedy;
+		}
+	}
+
+	@Override
+	public void run() {
+		// find our enemy
+		turnRadarRightRadians(Double.POSITIVE_INFINITY);
+
+		// Make the radar independent of our motion
+		setAdjustRadarForGunTurn(true);
+		setAdjustRadarForRobotTurn(true);
+
+		do {
+			executePolicy();
+			execute();
+			scan();
+		} while (true);
+	}
+
+	private void performAction(final double[] sa) {
+		final Action action = Action.values()[(int) sa[sa.length - 1]];
+		action.performAction(this);
+	}
+
+	/**
+	 * *********************************************************************
+	 * Events
+	 */
+	// update the state
+	@Override
+	public void onStatus(final StatusEvent e) {
+		this.energy = getEnergy();
+
+		this.gunHeat = getGunHeat();
+
+		this.x = getX();
+
+		this.y = getX();
+
+		this.velocity = getVelocity();
+
+		this.heading = getHeading();
+
+		this.gunHeading = getGunHeading();
+
+		this.radarHeading = getRadarHeading();
+
+		// entered new state so it's time for q value update
+
+		final double[][] sas = this.generateStateActionPairs();
+		final double[] greedy = maxQOf(sas);
+
+		for (int i = 0; i < sas.length; i++) {
+			final double[] sa = sas[i];
+		}
+
+		if (lastStateAction != null) {
+			//log("Found Reward " + lastReward + "- Updating Q value");
+
+			final double old_q = lut.outputFor(lastStateAction);
+
+			final double new_q = old_q + alpha
+					* (lastReward + gamma * lut.outputFor(greedy) - old_q);
+
+			lut.train(lastStateAction, new_q);
+
+			lastReward = 0;
+		}
+	}
+
+	// This method is called when your robot sees another robot, i.e. when the
+	// robot's radar scan "hits" another robot.
+	@Override
+	public void onScannedRobot(final ScannedRobotEvent e) {
+		trackedEnemy = true;
+
+		this.enemyBearing = e.getBearing();
+
+		this.enemyDistance = e.getDistance();
+
+		this.enemyEnergy = e.getEnergy();
+
+		this.enemyVelocity = e.getVelocity();
+
+		// Lock the radar on - found at
+		// http://robowiki.net/wiki/One_on_One_Radar
+		final double radarTurn =
+		// Absolute bearing to target
+		getHeadingRadians() + e.getBearingRadians()
+		// Subtract current radar heading to get turn required
+				- getRadarHeadingRadians();
+
+		setTurnRadarRightRadians(Utils.normalRelativeAngle(radarTurn));
+	}
+
+	// This method is called when one of your bullets hits another robot.
+	@Override
+	public void onBulletHit(final BulletHitEvent event) {
+
+		// generate reward
+
+		lastReward = 3;
+
+		waitForBullet = false;
+	}
+
+	// This method is called when one of your bullets hits another bullet.
+	@Override
+	public void onBulletHitBullet(final BulletHitBulletEvent event) {
+		// generate reward
+		lastReward = 1;
+
+		waitForBullet = false;
+	}
+
+	@Override
+	public void onBulletMissed(final BulletMissedEvent event) {
+		lastReward = -1;
+
+		waitForBullet = false;
+	}
+
+	// This method is called if your robot dies.
+	@Override
+	public void onDeath(final DeathEvent event) {
+		// generate -reward
+		lastReward = -1;
+	}
+
+	// This method is called when your robot is hit by a bullet.
+	@Override
+	public void onHitByBullet(final HitByBulletEvent event) {
+		// generate -reward
+		lastReward = -2;
+	}
+
+	// This method is called when your robot collides with another robot.
+	@Override
+	public void onHitRobot(final HitRobotEvent event) {
+		//log("Robot on hit robot: Reward!");
+		// generate reward
+		lastReward = -1;
+	}
+
+	// This method is called when your robot collides with a wall.
+	@Override
+	public void onHitWall(final HitWallEvent event) {
+		//log("Robot Hit Wall: -Reward!");
+		// generate -reward
+		lastReward = -1;
+	}
+
+	// This method is called when another robot dies.
+	@Override
+	public void onRobotDeath(final RobotDeathEvent event) {
+		log("Robot Death: Reward!");
+		// generate +reward
+		lastReward = 2;
+	}
+
+	// This method is called after the end of a round.
+	@Override
+	public void onRoundEnded(final RoundEndedEvent event) {
+		super.onRoundEnded(event);
+		logToFile(event.getRound() + "," + lut.explored());
+		event.getRound();
+		event.getTime();
+	}
+
+	@Override
+	public void onBattleEnded(final BattleEndedEvent event) {
+		log("Battle over lets save this LUT");
+		final File file = new File("C:/Users/Vincent Wong/Dropbox/workspace_robocode/MyRobots/bin/LearningRobot/log.txt");
+		logToFile("LUT Size: " + lut.size());
+		System.out.println("LUT Size: " + lut.size());
+		//System.out.println(lut);
+		try {
+			//fileOut.close();
+			lut.save(file);
+		} catch (final IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private double[][] generateStateActionPairs() {
+		final double[][] sas = new double[Action.values().length][stateVariables + 1];
+
+		// conviniently the ordinals map to the indexes so this is pretty easy
+		for (final Action action : Action.values()) {
+			final double[] sa = populateState(sas[action.ordinal()]);
+			sa[sa.length - 1] = action.ordinal();
+		}
+
+		return sas;
+	}
+
+	/**
+	 * Populates the state variables
+	 *
+	 * @param sa
+	 */
+	private double[] populateState(final double[] sa) {
+
+		// LearningRobot STATS
+
+		// energy
+		sa[0] = processEnergy(energy);
+
+		// x
+		sa[1] = Math.round(x / 100);
+
+		// y
+		sa[2] = Math.round(y / 100);
+
+		// gun heat
+		sa[3] = gunHeat == 0 ? 0 : 1;
+
+		// heading
+		sa[4] = processBearing(heading);
+
+		// ENEMY STATS
+
+		// heading
+		sa[6] = processBearing(enemyBearing);
+
+		// distance
+		sa[7] = enemyDistance > 666 ? 2 : (enemyDistance < 333 ? 0 : 1);
+
+		// energy
+		// sa[8] = processEnergy(enemyEnergy);
+
+		return sa;
+	}
+
+	/**
+	 * Tokenizes bearing into states 7 0 - N 1 - NE 2 - E 3 - SE 4 - S 5 - SW 6
+	 * - W 6 - NW
+	 *
+	 * @param bearing
+	 * @return
+	 */
+	private double processBearing(final double bearing) {
+		double retval = 0;
+
+		// NORTH
+		if (bearing > 337.5 && bearing <= 380 || bearing >= 0
+				&& bearing <= 22.5) {
+			retval = 0;
+		}
+
+		// NORTH EAST
+		else if (bearing >= 22.5 && bearing < 67.5) {
+			retval = 1;
+
+		}
+
+		// EAST
+		else if (bearing >= 67.5 && bearing < 112.5) {
+			retval = 2;
+		}
+
+		// SE
+		else if (bearing >= 112.5 && bearing < 157.5) {
+			retval = 3;
+		}
+
+		// S
+		else if (bearing >= 157.5 && bearing < 202.5) {
+			retval = 4;
+		}
+
+		// SW
+		else if (bearing >= 202.5 && bearing < 247.5) {
+			retval = 5;
+		}
+
+		// W
+		else if (bearing >= 247.5 && bearing < 292.5) {
+			retval = 6;
+		}
+
+		// NW
+		else {
+			retval = 7;
+		}
+
+		return retval;
+	}
+
+	/**
+	 * Tokenizes energy into three states
+	 *
+	 * @param energy
+	 * @return
+	 */
+	private double processEnergy(final double energy) {
+		double retval = 0;
+
+		if (energy >= 66) {
+			retval = 2;
+		} else if (energy >= 33) {
+			retval = 1;
+		}
+
+		return retval;
+	}
+
+	/**
+	 * Returns the s, a pair with the highest q value, assuming that the last
+	 * entry is the q value.
+	 *
+	 * @param sas
+	 * @return
+	 */
+	private double[] maxQOf(final double[][] sas) {
+
+		double max = -Double.MAX_VALUE;
+		double[] retval = null;
+
+		for (int i = 0; i < sas.length; i++) {
+			final double[] sample = sas[i];
+			// log("Action: " + sample[sample.length - 1]);
+			final double q = lut.outputFor(sample);
+			// log("q: " + q);
+
+			if (max < q) {
+				retval = sample;
+				max = q;
+			}
+		}
+
+		return retval;
+	}
+
+	public void log(final String string) {
+		System.out.println(string);
+	}
+
+	public void logToFile(final String info) {
+		final String file = "C://Users/Vincent Wong/Dropbox/workspace_robocode/MyRobots/bin/LearningRobot/LUT.txt";
+
+		try {
+		    	fileOut = new PrintStream(new RobocodeFileOutputStream(getDataFile(file)));
+		    	fileOut.println(info);
+		    	if (fileOut.checkError()) {
+					out.println("I could not write the count!");
+				}
+		    } catch (IOException e) {
+		        // TODO Auto-generated catch block
+		        e.printStackTrace();
+		    }       
+
+	}
+
+}

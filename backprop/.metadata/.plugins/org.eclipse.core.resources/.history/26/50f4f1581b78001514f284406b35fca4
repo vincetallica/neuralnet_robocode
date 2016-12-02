@@ -1,0 +1,142 @@
+package NeuralNet;
+
+import java.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	double LR = 0.2;
+	public NeuralNet() { //Constructor
+	
+	}
+	public double sigmoid (double x) {
+		return (2.0/(1 + Math.pow(Math.E, (-1) * x))) - 1 ; //[-1, 1]
+	}
+
+	public double customSigmoid (double x) {
+		return ((argUpperB-argLowerB)/(1 + Math.pow(Math.E, (-1) * x)) - argLowerB);
+	}
+
+	public void initializeWeights() {
+		// input vector X [0]=-1/1, [1]=1/-1, [2]=1 
+		for(int j=0; j < NUM_HIDDEN; j++ )
+		{
+			for (int k=0; k < NUM_OUTPUTS; k++) {
+				weightsHO[k][j] = (new Random().nextDouble() - 0.5); // [-0.5, 0.5]
+				System.out.println("Weight = " + weightsHO[k][j]);
+			}
+			for (int i = 0; i < NUM_INPUTS; i++) {
+				weightsIH[i][j] = (new Random().nextDouble() - 0.5); // [-0.5, 0.5]
+				System.out.println("IH Weight = " + weightsIH[i][j]);
+			}
+		}
+	}
+	public void zeroWeights() {
+		for(int j=0; j < NUM_HIDDEN; j++ )
+		{
+			hiddenNeuron [j] = 0;
+		}
+	}
+	public void trainSet() {
+        trainInputs[0][0] = 1;
+        trainInputs[0][1] = -1;
+        trainInputs[0][2] = 1;    // Bias
+        trainOutput[0] = 1;
+
+        trainInputs[1][0] = -1;
+        trainInputs[1][1] = 1;
+        trainInputs[1][2] = 1;    // Bias
+        trainOutput[1] = 1;
+
+        trainInputs[2][0] = 1;
+        trainInputs[2][1] = 1;
+        trainInputs[2][2] = 1;    // Bias
+        trainOutput[2] = -1;
+
+        trainInputs[3][0] = -1;
+        trainInputs[3][1] = -1;
+        trainInputs[3][2] = 1;    // Bias
+        trainOutput[3] = -1;
+	}
+	@Override
+	public double[] outputFor(double[] X) {
+		// TODO Auto-generated method stub
+		// Calculate hidden nerons' activations (Forward propagation)
+		double weightedSum = 0.0;
+		for (int i = 0; i< NUM_HIDDEN; i++) {
+			weightedSum = 0.0;
+			for (int j = 0; j<NUM_INPUTS; j++) {//size of input vector
+				weightedSum += (X[j]*weightsIH[j][i]);
+			}
+			hiddenNeuron[i] = sigmoid(weightedSum);
+		}
+		// Calculate output neuron value (Forward propagation)
+		for (int i=0; i < NUM_OUTPUTS; i++) {
+			weightedSum = 0.0;
+			for (int j = 0; j < NUM_HIDDEN; j++) {//size of input vector
+				weightedSum += (hiddenNeuron[j]*weightsHO[i][j]);
+			}
+			outputNeuron[i] = sigmoid(weightedSum);
+		}
+		//
+		return outputNeuron; //if outputFor() will be iterated across # of neurons
+		//we will still need # of neurons/hiddenlayer
+	}
+	@Override
+	public double[] train (double[] X, double argValue) {
+		// beginning with outputs, eval error, prop downwards
+		double errOutput[] = new double[NUM_OUTPUTS];//initialized 0 by default
+		double fprime_err [] = new double[NUM_OUTPUTS];
+		double BPweightSum[] = new double[NUM_OUTPUTS];
+		double BPweightSumHI[] = new double[NUM_INPUTS];
+		double fprimeIH_err [] = new double[NUM_HIDDEN];
+
+		// Calculate output delta
+		// Adjust hidden to output weights
+		for (int i=0; i<NUM_OUTPUTS; i++) { //assuming argValue.length=1
+			errOutput[i] = outputNeuron[i] - argValue;
+			fprime_err[i] = outputNeuron[i]*(1-outputNeuron[i]);
+		}
+		// Calculate weightHO changes based on errOutput/fprime_err
+		for (int i=0;i<NUM_HIDDEN; i++)
+		{ 	
+			for (int j = 0; j<NUM_OUTPUTS; j++) {
+				BPweightSum[j] += hiddenNeuron[i]*errOutput[j]*fprime_err[j];
+				//update HO weights 
+				weightsHO[j][i] = weightsHO[j][i] - (LR*BPweightSum[j]);
+			}
+		
+		// Calculate weightIH changes based on weightsHO
+		
+		}
+		// TODO Auto-generated method stub
+		//Calculated Err=estimated-actual
+		for (int i=0;i<NUM_HIDDEN; i++)
+		{
+			fprimeIH_err[i] = hiddenNeuron[i]*(1-hiddenNeuron[i]);
+			for (int j = 0; j<NUM_INPUTS; j++) {
+				for(int k =0; k<NUM_OUTPUTS; k++) {
+					BPweightSumHI[j] = BPweightSum[k] * fprimeIH_err[i]  *X[j];
+					//might not be multiplying input X[j] for S'(x)
+				}
+				//update IH weights 
+				weightsIH[j][i] = weightsIH[j][i] - (LR*BPweightSumHI[j]);
+			}
+			
+		}
+		return errOutput;
+	}
+
+	@Override
+	public void save(File argFile) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void load(String argFileName) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+}

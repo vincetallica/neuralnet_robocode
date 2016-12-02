@@ -1,0 +1,149 @@
+package LearningRobot;
+
+import NeuralNet.LUTInterface;
+
+import java.io.*;
+import java.nio.ByteBuffer;
+
+import robocode.*;
+
+public class LookupTable implements LUTInterface {
+
+    private final int length;
+    private final int[] steps;
+    private double[] lut;
+
+    /**
+     *
+     */
+    private int numInputs;
+    private int[] floor;
+    private int[] ceiling;
+    private ByteBuffer buffer;
+
+
+    /**
+     * Constructor. (You will need to define one in your implementation)
+     *
+     * @param numInputs       The number of inputs in your input vector
+     * @param variableFloor   An array specifying the lowest value of each variable in the input vector.
+     * @param variableCeiling An array specifying the highest value of each of the variables in the input vector.
+     *                        The order must match the order as referred to in argVariableFloor.
+     *                        public LUT (
+     *                        int argNumInputs,
+     *                        int [] argVariableFloor,
+     *                        int [] argVariableCeiling );
+     */
+    public LookupTable(int numInputs, int[] variableFloor, int[] variableCeiling) {
+        this.numInputs = numInputs;
+        this.floor = variableFloor;
+        this.ceiling = variableCeiling;
+        this.steps = new int[numInputs];
+
+        int length = 1;
+
+        // for the number of input in the
+        for (int i = 0; i < variableFloor.length; i++) {
+
+            // determine the number of steps in a variable range
+            // if a value goes from 1 - 10 then the number os steps is 10 - 1 + 1 or 10.
+            // we save these so we can
+            int steps = variableCeiling[i] - variableFloor[i] + 1;
+            this.steps[i] = steps;
+
+            // the length is equal to the product of possible steps in the
+            // each of the inputs
+            length *= steps;
+        }
+
+        this.length = length;
+
+        initialiseLUT();
+    }
+
+
+    @Override
+    public void initialiseLUT() {
+        // java arrays are initialized to zero by default
+        this.lut = new double[length];
+        for (int i = 0; i < lut.length; i++) {
+            lut[i] = 0;
+        }
+    }
+
+    /**
+     * @param x The state action vector used to index the LUT
+     * @return
+     */
+    @Override
+    public int indexFor(double[] x) {
+        if (x.length != numInputs) {
+            throw new RuntimeException("The state action array you've provided does not match the specified length was " + x.length + "expected: " + numInputs);
+        }
+        int units = 1;
+        int index = units * ((int) x[0] - floor[0]);
+        for (int i = 1; i < x.length; i++) {
+            units = units * (ceiling[i - 1] - floor[i - 1] + 1);
+            index = index + (int) (x[i] - floor[i]) * units;
+        }
+        return index;
+    }
+
+    @Override
+    public double outputFor(double[] x) {
+        return lut[indexFor(x)];
+    }
+
+    @Override
+    public double train(double[] x, double q) {
+        return lut[indexFor(x)] = q;
+    }
+
+    @Override
+    public void save(File file) throws IOException {
+    	PrintStream saveFile = null;
+    	try {
+			saveFile = new PrintStream( new RobocodeFileOutputStream(file));
+		}
+    	catch (IOException e) {
+			System.out.println( "*** Could not create output stream for NN save file.");
+		}
+    	for (int i = 0; i<lut.length; i++) {
+    		saveFile.println(lut[i]);
+    	}
+    	saveFile.close();
+    }
+
+    @Override
+    public void load(String argFileName) throws IOException {
+    	FileInputStream inputFile = new FileInputStream( argFileName );
+    	BufferedReader inputReader = new BufferedReader(new InputStreamReader( inputFile ));
+        try {
+        	for (int i=0; i<lut.length; i++) {
+        		lut[i] = Double.valueOf(inputReader.readLine());
+        	}
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+        in.close();
+    }
+
+    public double explored() {
+
+        int count = 0;
+
+        for (int i = 0; i < lut.length; i++) {
+            if (lut[i] != 0) {
+                count++;
+            }
+        }
+
+        double percent = 100 * ((double) count / (double) lut.length);
+
+        return percent;  //To change body of created methods use File | Settings | File Templates.
+    }
+
+    public int size() {
+        return lut.length;
+    }
+}

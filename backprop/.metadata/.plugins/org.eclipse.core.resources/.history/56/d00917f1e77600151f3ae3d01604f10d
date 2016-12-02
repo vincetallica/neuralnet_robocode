@@ -1,0 +1,48 @@
+package Common;
+
+import java.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.Random;
+
+public class Common implements CommonInterface {
+
+	public static final int NUM_OUTPUTS = 1;
+	public static final int NUM_INPUTS = 3;
+	public static final int NUM_PATTERNS = 4;
+	public static final int NUM_HIDDEN = 4;
+	public static final int NUM_EPOCH = 200;
+
+	public static double hiddenVal[] = new double[NUM_HIDDEN];    // Hidden node outputs.
+
+	public static double weightsIH[][] =  new double[NUM_INPUTS][NUM_HIDDEN]; // Input to Hidden weights.
+	public static double weightsHO[] = new double[NUM_HIDDEN];    // Hidden to Output weights.
+
+	public static int trainInputs[][] = new int[NUM_PATTERNS][NUM_INPUTS];
+	public static int trainOutput[] = new int[NUM_PATTERNS];      // "Actual" output values.
+
+	public static final double LR = 0.1;      // Learning rate, input to hidden weights.
+
+	// returns value by LUT/NN for this input vector
+	// X input vector
+	// argValue
+	public double outputFor(double [] X) {
+		double value;
+		for (int i=0; i< X.length; i++) 
+		{
+			return (X[i]);
+		}
+		return ;
+	}
+	public double train (double[] X, double argValue) {
+		
+	}
+	public void save(File argFile) {
+		// TODO Auto-generated method stub
+		
+	}
+	public void load (String argFileName) throws IOException {
+		
+	}
+
+}

@@ -1,0 +1,8 @@
+
+public class NeuralNet implements NeuralNetInterface {
+
+	public NeuralNet() {
+		// TODO Auto-generated constructor stub
+	}
+
+}

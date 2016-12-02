@@ -1,0 +1,33 @@
+package NeuralNet;
+import java.*;
+import java.util.Random;
+
+public class Common implements CommonInterface {
+
+	public static final int NUM_OUTPUTS = 1;
+	public static final int NUM_INPUTS = 3;
+	public static final int NUM_PATTERNS = 4;
+	public static final int NUM_HIDDEN = 4;
+	public static final int NUM_EPOCH = 200;
+
+    private static final double LR = 0.7;      // Learning rate, input to hidden weights.
+    //private static final double LR_HO = 0.07;     // Learning rate, hidden to output weights.
+
+    private static double hiddenVal[] = new double[NUM_HIDDEN];    // Hidden node outputs.
+
+    private static double weightsIH[][] =  new double[NUM_INPUTS][NUM_HIDDEN]; // Input to Hidden weights.
+    private static double weightsHO[][] = new double[NUM_OUTPUTS][NUM_HIDDEN];    // Hidden to Output weights.
+
+    private static int trainInputs[][] = new int[NUM_PATTERNS][NUM_INPUTS];
+    private static int trainOutput[] = new int[NUM_PATTERNS];      // "Actual" output values.
+
+	public double outputFor(double [] X) {
+		
+	}
+	public double train (double[] X, double argValue) {
+		
+	}
+	public void save (File argFile) {
+		
+	}
+}

@@ -1,0 +1,29 @@
+import java.*;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	public double sigmoid (double x) {
+		return 
+	}
+	public double customSigmoid(double x) {
+		
+	}
+	public void initializeWeights() {
+        //  Initialize weights to random values.
+        for(int j = 0; j < NUM_HIDDEN; j++)
+        {
+            weightsHO[j] = (new Random().nextDouble() - 0.5) / 2.0;
+            for(int i = 0; i < NUM_INPUTS; i++)
+            {
+                weightsIH[i][j] = (new Random().nextDouble() - 0.5) / 5.0;
+                System.out.println("Weight = " + weightsIH[i][j]);
+            } // i
+        } // j
+        
+        return;
+	}
+	public void zeroWeights() {
+		
+	}
+}

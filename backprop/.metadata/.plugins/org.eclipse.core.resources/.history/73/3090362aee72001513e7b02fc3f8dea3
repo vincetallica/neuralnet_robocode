@@ -1,0 +1,21 @@
+import java.*;
+import java.util.Random;
+
+public class NeuralNet implements NeuralNetInterface {
+
+	private static final int NUM_INPUTS = 3;
+	private static final int NUM_PATTERNS = 4;
+	
+	public double sigmoid (double x) {
+		return (2.0/(1 + Math.pow(Math.E, (-1) * x))); 
+	}
+	public double customSigmoid (double x) {
+		return (1.0/(1 + Math.pow(Math.E, (-1) * x)));
+	}
+	public void initializeWeights() {
+		
+	}
+	public void zeroWeights() {
+		
+	}
+}

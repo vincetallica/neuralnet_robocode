@@ -1,0 +1,41 @@
+package NeuralNet;
+import java.io.File;
+import java.io.IOException;
+
+/* This interface is common to both the Neural Net and LUT interfaces.
+ The idea is that you should be able to easily switch the LUT
+ for the Neural Net since the interfaces are identical. */
+
+public interface CommonInterface {
+
+	/* FEED FORWARD
+	 *  The input vector. An array of doubles.
+     * @return The value returned by the LUT or NN for this input vector
+	 * 	X the input vector. An array of doubles.
+	 * The value return by LUT OR NN for this input vector
+	 * returns output of the neurons forward propagation
+	 * */
+	public double outputFor(double [] X);
+
+	/* 
+	 * Method will tell NN or LUT the output value that should be mapped 
+	 * to given input vector i.e. the desired correct output value for an input
+	 * @param X the input vector
+	 * @param argValue The new value to learn
+	 * @return the error in output for input vector 
+	 */
+	public double train(double[] X, double argValue);
+	/*
+	 * Method to write either a LUT or weights of neural net to a file
+	 * @param argFile of type File
+	 */
+	public void save (File argFile);
+	/*
+	 * Loads LUT or NN weights from file. Load must of course have 
+	 * knowledge of how data was written out by save mehtod.
+	 * Should raise an error in case that attempt is being made
+	 * to load data into an LUT or NN whose struct does not match the data in
+	 * the file (.eg. wrong number of hidden neurons)
+	 */
+	public void load (String argFileName) throws IOException;
+}
